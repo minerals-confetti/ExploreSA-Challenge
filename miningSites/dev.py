@@ -1,6 +1,6 @@
 import pandas as pd
 
-df = pd.read_excel("MiningSites.xlsx")
+df = pd.read_csv("processedMS.csv")
 
 df_dict = df.to_dict(orient = "list")
 
@@ -20,6 +20,6 @@ for MINERAL_DEPOSIT_NO, idxlist in minNo2idx.items():
 df = df.drop(repeatlist, axis=0)
 
 df = df.loc[:, ['MINERAL_DEPOSIT_NO', 'DEPOSIT_COMMODITY_CODES', 'MAJOR_COMMODITY_CODE', 'MINDEP_CLASS_CODE', "STATUS_TYPE_VALUE", "SIZE_TYPE_VALUE", "ORE_LITHOLOGY_CODE", "LONGITUDE", "LATITUDE"]]
-
+df = df.dropna()
 df.to_csv("processedMS.csv")
 
