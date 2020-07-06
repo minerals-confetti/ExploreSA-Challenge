@@ -140,7 +140,8 @@ cython_debug/
 # Personal Envs
 exploreEnv/
 
-
+# Datasets
+data/
 
 # vscode
 .vscode/*
