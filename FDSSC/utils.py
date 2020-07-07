@@ -47,6 +47,41 @@ def findshape(dataset, crs='EPSG:4326'):
     
     return outlist
 
+def collate_images(dirlist):
+    import rasterio
+    for directory in dirlist:
+        arrays = {}
+        # Read metadata of first file
+        with rasterio.open(directory[0]) as src0:
+            metadata = src0.meta
+
+        metadata.update(count=len(directory))
+        with rasterio.open(("_".join(directory[0].split("/")[-1].split(".")[0].split("_")[1:-1]) + ".TIF"), "w", **metadata) as dest:
+            for image in directory:
+                with rasterio.open(image) as dset:
+                    bnum = int(image.split(".")[0].split("_")[-1].replace("B", ""))
+                    dest.write_band(bnum, dset.read(1))
+
+def walkdir(datadir):
+    import os
+
+    dirlist = []
+
+    for root, dirs, files in os.walk(datadir):
+        for name in dirs:
+            dirlist.append(root + "/" + name)
+
+    dir2files = {}
+    for name in dirlist:
+        for root, dirs, files in os.walk(name):
+            namelist = []
+            for name in files:
+                if "TIF" in name:
+                    namelist.append(root + "/" + name)
+            dir2files[root.split("/")[-1]] = namelist
+
+    return dir2files
+
 # training model
 
 import torch
