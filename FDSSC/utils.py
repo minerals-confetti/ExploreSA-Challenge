@@ -8,6 +8,23 @@ def format_time(elapsed):
     elapsed_rounded = int(round((elapsed)))
     return str(datetime.timedelta(seconds=elapsed_rounded))
 
+def find_bbox(dataset):
+    """given a dataset, will return the bounding box in original coords (tl, tr, br, bl)"""
+    tl = dataset.transform * (0, 0)
+    tr = dataset.transform * (dataset.width, 0)
+    bl = dataset.transform * (0, dataset.height)
+    br = dataset.transform * (dataset.width, dataset.height)
+
+    return tl, tr, br, bl
+
+def convert_to_EPSG4326(xy, dataset):
+    """given a list of (x, y) encoded in dataset.crs, returns a list of (x, y) encoded in EPSG4326"""
+    from pyproj import transform, Proj
+    inproj, outproj = dataset.crs, Proj('EPSG:4326')
+    
+    return list(zip(*transform(inproj, outproj, *zip(*xy))))
+
+
 # training model
 
 import torch
@@ -87,11 +104,11 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
         t0 = time.time()
         model.eval()
 
-        eval_loss, eval_accuracy = 0, 0
-        nb_eval_steps, nb_eval_examples = 0, 0
+        eval_accuracy = 0
+        nb_eval_steps = 0
 
-        for batch in loader:
-            inputs, label = data["image"].to(device), data["label"].to(device)
+        for batch in dataloader:
+            inputs, label = batch["image"].to(device), batch["label"].to(device)
 
             with torch.no_grad():
                 #forward pass without gradient calculations for speeeeeeeeed
@@ -99,7 +116,7 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
                 outputs = model(inputs)
 
             # calculating validation loss
-            tmp_eval_accuracy = loss_fn(outputs, labels)
+            tmp_eval_accuracy = loss_fn(outputs, label)
 
             eval_accuracy += tmp_eval_accuracy
             # Track the number of batches
