@@ -21,9 +21,31 @@ def convert_to_EPSG4326(xy, dataset):
     """given a list of (x, y) encoded in dataset.crs, returns a list of (x, y) encoded in EPSG4326"""
     from pyproj import transform, Proj
     inproj, outproj = dataset.crs, Proj('EPSG:4326')
-    
+
     return list(zip(*transform(inproj, outproj, *zip(*xy))))
 
+def findshape(dataset, crs='EPSG:4326'):
+    """Outputs in latitude, longitude"""
+    import rasterio
+    import rasterio.features
+    import rasterio.warp
+
+    # Read the dataset's valid data mask as a ndarray.
+    mask = dataset.dataset_mask()
+
+    outlist = []
+    # Extract feature shapes and values from the array.
+    for geom, val in rasterio.features.shapes(
+            mask, transform=dataset.transform):
+
+        # Transform shapes from the dataset's own coordinate
+        # reference system to CRS84 (EPSG:4326).
+        geom = rasterio.warp.transform_geom(
+            dataset.crs, crs, geom, precision=6)
+        
+        outlist.append(geom)
+    
+    return outlist
 
 # training model
 
