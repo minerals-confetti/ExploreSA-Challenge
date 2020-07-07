@@ -61,7 +61,8 @@ def collate_images(dirlist):
                 with rasterio.open(image) as dset:
                     bnum = int(image.split(".")[0].split("_")[-1].replace("B", ""))
                     dest.write_band(bnum, dset.read(1))
-
+    return "yeetus reetus"
+    
 def walkdir(datadir):
     import os
 
