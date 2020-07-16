@@ -17,10 +17,20 @@ def find_bbox(dataset):
 
     return tl, tr, br, bl
 
+
+#import transform library
+from pyproj import transform, Proj
+
 def convert_to_EPSG4326(xy, dataset):
     """given a list of (x, y) encoded in dataset.crs, returns a list of (x, y) encoded in EPSG4326"""
-    from pyproj import transform, Proj
+
     inproj, outproj = dataset.crs, Proj('EPSG:4326')
+
+    return list(zip(*transform(inproj, outproj, *zip(*xy))))
+
+def convert_from_EPSG4326(xy, dataset):
+    """given a list of (x, y) encoded in EPSG:4326, returns a list of (x, y) encoded in dataset.crs"""
+    inproj, outproj = Proj('EPSG:4326'), dataset.crs
 
     return list(zip(*transform(inproj, outproj, *zip(*xy))))
 
@@ -82,6 +92,24 @@ def walkdir(datadir):
             dir2files[root.split("/")[-1]] = namelist
 
     return dir2files
+
+# extract images
+from rasterio.windows import Window
+import numpy as np
+def extract_cubic(dataset, coords, size=(9, 9)):
+    '''takes in a opened rasterio dataset, a list of tuples of coords [(lat, long),], size of the extracted cubics, 
+    and returns coords_length * size1 * size2 * n_bands'''
+    
+    output = np.zeros((len(coords), *size, dataset.count))
+    trans_coords = convert_from_EPSG4326(coords, dataset)
+    
+    for i, (lon, lat) in enumerate(trans_coords):
+        py, px = dataset.index(lon, lat)
+        window = Window(px - size[0] // 2, py - size[1] // 2, size[0], size[1])
+        clip = dataset.read(window=window)
+        output[i] = np.transpose(clip, (1, 2, 0))
+
+    return output
 
 # training model
 

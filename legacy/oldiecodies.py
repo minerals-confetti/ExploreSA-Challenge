@@ -48,3 +48,23 @@ def collate_images(dirlist):
         with rasterio.open(each) as dataset:
             ax2[j][k].imshow(dataset.read(1), cmap="Greens")
 
+
+# legacy map display
+    dir2name = utils.walkdir(datadir)
+
+    m = folium.Map(location=[-31.743944369555788, 138.29644592694788], tiles='OpenStreetMap', zoom_start=8)
+
+
+    tile = folium.TileLayer(
+            tiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attr = 'Esri', name = 'Esri Satellite', overlay = False, 
+            control = True, opacity=0.7).add_to(m)
+    root = "data/stacked_images"
+    for files in list(dir2name.values())[0]:
+            dataset = rasterio.open(files)
+            image_loc = folium.vector_layers.Polygon([(y, x) for x, y in utils.findshape(dataset)[0]["coordinates"][0]]).add_to(m)
+    for i in OCC_df.index:
+        folium.Marker([OCC_df.loc[i,'LATITUDE'], 
+                        OCC_df.loc[i,'LONGITUDE']]).add_to(m)
+
+    m
