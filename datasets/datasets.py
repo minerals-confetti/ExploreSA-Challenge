@@ -100,6 +100,7 @@ class LocationChecker():
         for i, (lat, lon) in enumerate(zip(df_dict["LATITUDE"], df_dict["LONGITUDE"])):
             if self.check(self.conv_coords(lat, lon)):
                 keepindicies.append(i)
+                print("keeping {}".format(i))
             
         outputdf = df.iloc[keepindicies]
         outputdf.to_csv(outputfile, index=False)
