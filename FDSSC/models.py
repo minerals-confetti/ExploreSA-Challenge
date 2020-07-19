@@ -114,8 +114,7 @@ class FDSSC_model(nn.Module):
         output = self.softm(logits)
 
         return output
-
-    
+   
 class FerDSSC_model(nn.Module):
 
     def __init__(self, input_shape, classes):
