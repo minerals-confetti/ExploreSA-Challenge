@@ -17,8 +17,23 @@ def find_bbox(dataset):
 
     return tl, tr, br, bl
 
+# helper funcs to process csvs
 
-#import transform library
+def get_id2idx(df, id_column):
+    '''get id to index representation given a dataframe and an id column name'''
+    df_dict = df.to_dict(orient="list")
+    no_rep = list(set(df_dict[id_column]))
+
+    return {ident: idx for idx, ident in enumerate(no_rep)}
+
+def create_idxlist(df, id_column, id2idx):
+    '''create a list of "labels" from dataframe, id column name, and id2idx dictionary'''
+    df_dict = df.to_dict(orient="list")
+
+    return [id2idx[each] for each in df_dict[id_column]]
+
+# import transform library
+# stuff to transform images and stuff
 from pyproj import transform, Proj
 
 def convert_to_EPSG4326(xy, dataset):
