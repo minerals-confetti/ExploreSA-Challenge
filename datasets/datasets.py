@@ -117,6 +117,12 @@ class FDSSCDataset(Dataset):
 
     def __init__(self, datadir, csv, size=(9, 9), transform=None, lochecker=None):
         self.locations = pd.read_csv(csv)
+        #checking if csv is valid
+
+        columns = self.locations.columns
+        if "LATITUDE" not in columns or "LONGITUDE" not in columns or "label" not in columns:
+            raise Exception("csv invalid, LATITUDE, LONGITUDE, label must be in a valid csv")
+
         if lochecker:
             self.locationChecker = lochecker
         else:
