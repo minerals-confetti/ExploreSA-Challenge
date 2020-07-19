@@ -144,7 +144,7 @@ class FDSSCDataset(Dataset):
         if self.transform:
             cubic = self.transform(cubic)
         
-        sample = {"label": label, "cubic": cubic}
+        sample = {"label": label, "image": cubic}
 
         return sample
 
