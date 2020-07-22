@@ -64,7 +64,7 @@ class LocationChecker():
             for dataset in valid_list:
                 with rasterio.open(dataset) as ds:
                     sample = extract_cubic(ds, [(coords["LATITUDE"], coords["LONGITUDE"])], size=self.size)
-                    if not np.isnan(np.sum(sample)):
+                    if not np.isnan(np.sum(sample)) and sample.shape[1:3] == self.size:
                         valider_list.append(dataset)
             valid_list = valider_list
 
@@ -98,16 +98,18 @@ class LocationChecker():
 
         keepindicies = []
         for i, (lat, lon) in enumerate(zip(df_dict["LATITUDE"], df_dict["LONGITUDE"])):
-            if self.check(self.conv_coords(lat, lon)):
+            if self.check(self.conv_coords((lat, lon))):
                 keepindicies.append(i)
                 print("keeping {}".format(i))
             
         outputdf = df.iloc[keepindicies]
         outputdf.to_csv(outputfile, index=False)
 
-    def conv_coords(self, lat, lon):
-        '''converts lat, lon to coords used by this class'''
-        return {"LATITUDE": lat, "LONGITUDE": lon}
+    def conv_coords(self, coords, reverse=False):
+        '''converts (lat, lon) to coords used by this class'''
+        if reverse:
+            return coords["LATITUDE"], coords["LONGITUDE"]
+        return {"LATITUDE": coords[0], "LONGITUDE": coords[1]}
 
 class FDSSCDataset(Dataset):
     '''Creates a dataset from a directory of datasets, and a csv of VALID locations, and crops out a location to feed into FDSSC
@@ -135,12 +137,12 @@ class FDSSCDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
-        label = self.locations.loc[idx, "label"]
-        coords = {"LATITUDE": self.locations.loc[idx, "LATITUDE"], "LONGITUDE": self.locations.loc[idx, "LONGITUDE"]}
+        label = int(self.locations.loc[idx, "label"])
+        coords = {"LATITUDE": float(self.locations.loc[idx, "LATITUDE"]), "LONGITUDE": float(self.locations.loc[idx, "LONGITUDE"])}
 
         dataset_dir = self.locationChecker.check(coords)
-        cubic = self.extract_cubic(dataset_dir, coords, size=self.size)
-
+        cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
+        
         if self.transform:
             cubic = self.transform(cubic)
         
