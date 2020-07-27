@@ -27,9 +27,9 @@ def get_id2idx(df, id_column):
     '''get id to index representation given a dataframe and an id column name'''
     df_dict = df.to_dict(orient="list")
     no_rep = list(set(df_dict[id_column]))
-    if "NULL" in no_rep:
-        no_rep.remove("NULL")
-        outdict = {"NULL": 0}
+    if "NONE" in no_rep:
+        no_rep.remove("NONE")
+        outdict = {"NONE": 0}
         for i, rep in enumerate(no_rep):
             outdict[rep] = i + 1
         return outdict
@@ -58,7 +58,7 @@ def take_classes(df, id_column, ids):
 def mask_classes(df, id_column, ids):
     '''takes a list of ids and makes the id's not in the list a null value'''
     
-    df.loc[~df[id_column].isin(ids), id_column] = "NULL"
+    df.loc[~df[id_column].isin(ids), id_column] = "NONE"
     return df
 
 def freqdict(df, id_column):
