@@ -32,6 +32,19 @@ def create_idxlist(df, id_column, id2idx):
 
     return [id2idx[each] for each in df_dict[id_column]]
 
+def splitData(df, train=0.8, val=0.1):
+    size = df.size[0]
+    traindf = df.iloc[0:int(train*size)]
+    valdf = df.iloc[int(train*size):int((train + val) * size)]
+    testdf = df.iloc[int((train + val) * size):]
+
+    return traindf, valdf, testdf
+
+def pick_classes(df, id_column, ids):
+    '''takes a list of ids and discards all ids that aren't in the list'''
+
+    return df.loc[df[id_column] in ids]
+
 # import transform library
 # stuff to transform images and stuff
 from pyproj import transform, Proj
@@ -134,7 +147,7 @@ import torch.optim as optim
 import time
 import sys
 
-def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, callbacks=[], device=None):
+def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, callbacks=[], device=None, callback_args=None):
     # define default loss functions and optimizer
     if not loss_fn:
         loss_fn = nn.CrossEntropyLoss() #x is (batch_size, classes), targets are integers that correspond to the index of class (batch_size,)
@@ -188,7 +201,7 @@ def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, 
         print("  Training epoch took: {:}".format(format_time(time.time() - t0)))
 
     for callback in callbacks:
-        callback()
+        callback(callback_args)
 
     return loss_vals
 
@@ -199,7 +212,7 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
     if not device:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def validate():
+    def validate(**kwargs):
         print("Running Validation...")
 
         t0 = time.time()
@@ -228,3 +241,14 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
 
     return validate
 
+def saving_checkpoints_callback(path2chckpt, model, optimizer):
+
+    def save(**kwargs):
+        torch.save({
+            'epoch': kwargs["epoch"],
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': kwargs["loss"],
+            }, path2chckpt)
+        
+    return save

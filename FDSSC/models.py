@@ -127,31 +127,31 @@ class FerDSSC_model(nn.Module):
         # add padding since original paper would skip over channels that don't divide evenly into the convolution
         depth_after_spec = input_shape[3]
         # definitions for dense spectral layers
-        self.input_spec_conv = nn.Conv3d(1, 24, kernel_size=(1, 1, 7), stride=(1, 1, 1), padding=(0, 0, 3))
-        self.spectral_conv1 = Spectral_conv(24)
-        self.spectral_conv2 = Spectral_conv(36)
-        self.spectral_conv3 = Spectral_conv(48)
-        self.bn_prelu1 = Bn_prelu(60)
+        self.input_spec_conv = nn.Conv3d(1, growth_rate * 2, kernel_size=(1, 1, 7), stride=(1, 1, 1), padding=(0, 0, 3))
+        self.spectral_conv1 = Spectral_conv(growth_rate * 2)
+        self.spectral_conv2 = Spectral_conv(growth_rate * 3)
+        self.spectral_conv3 = Spectral_conv(growth_rate * 4)
+        self.bn_prelu1 = Bn_prelu(growth_rate * 5)
 
         #reshaping and transforming to prep for spatial conv
         hidden_states = 30
         conv_depth = depth_after_spec # maybe consider setting this to an integer so we can apply transfer learning? (need to pad as well)
-        self.reshape_conv = nn.Conv3d(60, hidden_states, kernel_size=(1, 1, conv_depth), stride=(1, 1, 1))
+        self.reshape_conv = nn.Conv3d(growth_rate * 5, hidden_states, kernel_size=(1, 1, conv_depth), stride=(1, 1, 1))
         self.bn_prelu2 = Bn_prelu(hidden_states)
 
         # definitions for dense spatial layers
-        self.input_spat_conv = nn.Conv3d(1, 24, kernel_size=(3, 3, hidden_states), stride=(1, 1, 1))
-        self.spatial_conv1 = Spatial_conv(24)
-        self.spatial_conv2 = Spatial_conv(36)
-        self.spatial_conv3 = Spatial_conv(48)
-        self.bn_prelu3 = Bn_prelu(60)
+        self.input_spat_conv = nn.Conv3d(1, growth_rate * 2, kernel_size=(3, 3, hidden_states), stride=(1, 1, 1))
+        self.spatial_conv1 = Spatial_conv(growth_rate * 2)
+        self.spatial_conv2 = Spatial_conv(growth_rate * 3)
+        self.spatial_conv3 = Spatial_conv(growth_rate * 4)
+        self.bn_prelu3 = Bn_prelu(growth_rate * 5)
 
         # pooling for classification
         self.pool1 = nn.AvgPool3d(kernel_size=(7, 7, 1), stride=(1, 1, 1))
 
         self.drop1 = nn.Dropout(0.5)
 
-        self.fc1 = nn.Linear(in_features=60, out_features=classes)
+        self.fc1 = nn.Linear(in_features=growth_rate * 5, out_features=classes)
         self.softm = nn.Softmax()
 
     def forward(self, x):
@@ -188,3 +188,4 @@ class FerDSSC_model(nn.Module):
         output = self.softm(logits)
 
         return output
+    
