@@ -88,7 +88,7 @@ class LocationChecker():
         return list(zip(*transform(inproj, outproj, *zip(*xy))))
 
     def checkdf(self, csv, outputfile):
-        '''checks a csv with a "LATITUDE", and a "LONGITUDE" column, removes all rows that aren't in the dataset'''
+        '''checks a csv with a "LATITUDE", and a "LONGITUDE" column, removes all rows that aren't in the dataset, adds path to given image'''
         
         df = pd.read_csv(csv, index_col=False)
         columns = df.columns
@@ -97,12 +97,17 @@ class LocationChecker():
         df_dict = df.to_dict(orient="list")
 
         keepindicies = []
+        paths = []
         for i, (lat, lon) in enumerate(zip(df_dict["LATITUDE"], df_dict["LONGITUDE"])):
-            if self.check(self.conv_coords((lat, lon))):
+            file_path = self.check(self.conv_coords((lat, lon)))
+            if file_path:
                 keepindicies.append(i)
-                print("keeping {}".format(i))
+                paths.append(file_path)
+            else:
+                print("not keeping {}".format(i))
             
         outputdf = df.iloc[keepindicies]
+        outputdf["paths"] = paths
         outputdf.to_csv(outputfile, index=False)
 
     def conv_coords(self, coords, reverse=False):
@@ -122,8 +127,8 @@ class FDSSCDataset(Dataset):
         #checking if csv is valid
 
         columns = self.locations.columns
-        if "LATITUDE" not in columns or "LONGITUDE" not in columns or "label" not in columns:
-            raise Exception("csv invalid, LATITUDE, LONGITUDE, label must be in a valid csv")
+        if "LATITUDE" not in columns or "LONGITUDE" not in columns or "label" not in columns or "paths" not in columns:
+            raise Exception("csv invalid, LATITUDE, LONGITUDE, label, paths must be in a valid csv")
 
         if lochecker:
             self.locationChecker = lochecker
@@ -140,7 +145,7 @@ class FDSSCDataset(Dataset):
         label = int(self.locations.loc[idx, "label"])
         coords = {"LATITUDE": float(self.locations.loc[idx, "LATITUDE"]), "LONGITUDE": float(self.locations.loc[idx, "LONGITUDE"])}
 
-        dataset_dir = self.locationChecker.check(coords)
+        dataset_dir = self.locations.loc[idx, "paths"]
         cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
         
         if self.transform:

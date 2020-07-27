@@ -42,7 +42,7 @@ class Spatial_conv(nn.Module):
 class FDSSC_model(nn.Module):
 
     def __init__(self, input_shape, classes):
-        '''Input shape in the form of (N,C,H,W,D)'''
+        '''Input shape in the form of (C,H,W,D)'''
         super(FDSSC_model, self).__init__()
         self.input_shape = input_shape
 
@@ -94,7 +94,6 @@ class FDSSC_model(nn.Module):
         trans1 = self.reshape_conv(xspec)
         trans1 = self.bn_prelu2(trans1)
         trans1 = trans1.permute(0, 4, 2, 3, 1) # moving channels axis to the depth axis
-        print(trans1.shape)
 
         # spatial conv layers
         x_spat0 = self.input_spat_conv(trans1)
@@ -118,7 +117,7 @@ class FDSSC_model(nn.Module):
 class FerDSSC_model(nn.Module):
 
     def __init__(self, input_shape, classes):
-        '''Input shape in the form of (N,C,H,W,D)'''
+        '''Input shape in the form of (C,H,W,D)'''
         super(FerDSSC_model, self).__init__()
         self.input_shape = input_shape
 
@@ -170,7 +169,6 @@ class FerDSSC_model(nn.Module):
         trans1 = self.reshape_conv(xspec)
         trans1 = self.bn_prelu2(trans1)
         trans1 = trans1.permute(0, 4, 2, 3, 1) # moving channels axis to the depth axis
-        print(trans1.shape)
 
         # spatial conv layers
         x_spat0 = self.input_spat_conv(trans1)
