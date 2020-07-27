@@ -43,7 +43,7 @@ def create_idxlist(df, id_column, id2idx):
     return [id2idx[each] for each in df_dict[id_column]]
 
 def splitData(df, train=0.8, val=0.1):
-    size = df.size[0]
+    size = df.shape[0]
     traindf = df.iloc[0:int(train*size)]
     valdf = df.iloc[int(train*size):int((train + val) * size)]
     testdf = df.iloc[int((train + val) * size):]
