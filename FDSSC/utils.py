@@ -17,12 +17,22 @@ def find_bbox(dataset):
 
     return tl, tr, br, bl
 
+# Helper Variables
+
+wantedids = ["Pb", "Mn", "U", "Au", "Cu", "Fe", "Ag", "Ni"]
+
 # helper funcs to process csvs
 
 def get_id2idx(df, id_column):
     '''get id to index representation given a dataframe and an id column name'''
     df_dict = df.to_dict(orient="list")
     no_rep = list(set(df_dict[id_column]))
+    if "NULL" in no_rep:
+        no_rep.remove("NULL")
+        outdict = {"NULL": 0}
+        for i, rep in enumerate(no_rep):
+            outdict[rep] = i + 1
+        return outdict
 
     return {ident: idx for idx, ident in enumerate(no_rep)}
 
@@ -40,10 +50,27 @@ def splitData(df, train=0.8, val=0.1):
 
     return traindf, valdf, testdf
 
-def pick_classes(df, id_column, ids):
+def take_classes(df, id_column, ids):
     '''takes a list of ids and discards all ids that aren't in the list'''
 
-    return df.loc[df[id_column] in ids]
+    return df.loc[df[id_column].isin(ids)]
+
+def mask_classes(df, id_column, ids):
+    '''takes a list of ids and makes the id's not in the list a null value'''
+    
+    df.loc[~df[id_column].isin(ids), id_column] = "NULL"
+    return df
+
+def freqdict(df, id_column):
+    df_dict = df.to_dict(orient="list")
+    no_rep = list(set(df_dict[id_column]))
+    
+    outdict = {}
+
+    for each in no_rep:
+        outdict[each] = df_dict[id_column].count(each)
+
+    return outdict
 
 # import transform library
 # stuff to transform images and stuff
