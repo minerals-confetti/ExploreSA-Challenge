@@ -174,7 +174,7 @@ import torch.optim as optim
 import time
 import sys
 
-def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, callbacks=[], device=None, callback_args=None):
+def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, callbacks=[], device=None, callback_args={}):
     # define default loss functions and optimizer
     if not loss_fn:
         loss_fn = nn.CrossEntropyLoss() #x is (batch_size, classes), targets are integers that correspond to the index of class (batch_size,)
@@ -189,6 +189,8 @@ def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, 
     model.train()
 
     loss_vals = [] # creating list to store loss values
+
+    callback_outputs = []
 
     for epoch in range(epochs):
         print("")
@@ -226,11 +228,16 @@ def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, 
         print("")
         print("  Average training loss: {0:.2f}".format(avg_train_loss))
         print("  Training epoch took: {:}".format(format_time(time.time() - t0)))
+    
+        callback_args["loss"] = avg_train_loss
+        callback_args["epoch"] = epoch + 1
 
-    for callback in callbacks:
-        callback(callback_args)
+        callback_returns = []
+        for callback in callbacks:
+            callback_returns.append(callback(callback_args))
+        callback_outputs.append(callback_returns)
 
-    return loss_vals
+    return loss_vals, callback_outputs
 
 def validate_callback(model, dataloader, loss_fn=None, device=None):
     if not loss_fn:
@@ -239,7 +246,7 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
     if not device:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def validate(**kwargs):
+    def validate(kwargs):
         print("Running Validation...")
 
         t0 = time.time()
@@ -265,17 +272,20 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
 
         print("  Loss: {0:.2f}".format(eval_accuracy/nb_eval_steps))
         print("  Validation took: {:}".format(format_time(time.time() - t0)))
-
+        return eval_accuracy / nb_eval_steps
     return validate
 
-def saving_checkpoints_callback(path2chckpt, model, optimizer):
+def saving_checkpoints_callback(path2chckpt, model, optimizer, freq, epochs):
 
-    def save(**kwargs):
-        torch.save({
-            'epoch': kwargs["epoch"],
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': kwargs["loss"],
-            }, path2chckpt)
+    def save(kwargs):
+        epoch = kwargs["epoch"]
+        loss = kwargs["loss"]
+        if (epoch - 1) % freq == 0 or epoch == epochs and epoch != 1:
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss,
+                }, "{}{}epoch_{}loss.pt".format(path2chckpt, epoch, loss))
         
     return save

@@ -143,6 +143,9 @@ exploreEnv/
 # Datasets
 data/
 
+# checkpoints
+TrainingCheckpoints/
+
 # vscode
 .vscode/*
 !.vscode/settings.json
