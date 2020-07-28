@@ -62,6 +62,7 @@ def mask_classes(df, id_column, ids):
     return df
 
 def freqdict(df, id_column):
+    '''returns dictionary of ids and number of times they appear'''
     df_dict = df.to_dict(orient="list")
     no_rep = list(set(df_dict[id_column]))
     
@@ -71,6 +72,7 @@ def freqdict(df, id_column):
         outdict[each] = df_dict[id_column].count(each)
 
     return outdict
+
 
 # import transform library
 # stuff to transform images and stuff
