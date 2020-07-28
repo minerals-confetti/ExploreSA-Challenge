@@ -134,7 +134,7 @@ class FerDSSC_model(nn.Module):
         self.bn_prelu1 = Bn_prelu(growth_rate * 5)
 
         #reshaping and transforming to prep for spatial conv
-        hidden_states = 30
+        hidden_states = 100
         conv_depth = depth_after_spec # maybe consider setting this to an integer so we can apply transfer learning? (need to pad as well)
         self.reshape_conv = nn.Conv3d(growth_rate * 5, hidden_states, kernel_size=(1, 1, conv_depth), stride=(1, 1, 1))
         self.bn_prelu2 = Bn_prelu(hidden_states)
@@ -183,9 +183,10 @@ class FerDSSC_model(nn.Module):
         pooled = self.pool1(xspat)
         flattened = torch.flatten(pooled, start_dim=1)
         dropped = self.drop1(flattened)
-        logits = self.fc1(dropped)
+        output = self.fc1(dropped)
         
-        output = self.softm(logits)
+        if not self.training:
+            output = self.softm(output)
 
         return output
     

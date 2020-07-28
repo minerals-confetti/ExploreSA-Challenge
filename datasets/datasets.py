@@ -35,6 +35,24 @@ def extract_cubic(dataset, coords, size=(9, 9)):
 
     return output
 
+#transforms
+class RandomRotation():
+    def __init__(self):
+        ''' adds random rotations, (quadruples data size)'''
+        self.angles = [0, 90, 180, 270]
+
+    def __call__(self, cubic):
+        
+        angle = random.choice(self.angles)
+        if angle == 0:
+            return cubic
+        elif angle == 90:
+            return cubic.transpose(1, 2).flip(2)
+        elif angle == 180:
+            return cubic.flip(2).flip(1)
+        elif angle == 270:
+            return cubic.transpose(1, 2).flip(1)
+
 class LocationChecker():
     '''creates a LocationChecker from a directory of datasets, 
     and checks if a location (EPSG4326) {"LATITUDE": num, "LONGITUDE": num} is valid
@@ -122,7 +140,7 @@ class FDSSCDataset(Dataset):
     The csv should have a "label" column, "LATITUDE", and "LONGITUDE"
     '''
 
-    def __init__(self, datadir, csv, size=(9, 9), transform=None, lochecker=None):
+    def __init__(self, datadir, csv, size=(9, 9), transform=[], lochecker=None):
         self.locations = pd.read_csv(csv)
         #checking if csv is valid
 
@@ -148,8 +166,10 @@ class FDSSCDataset(Dataset):
         dataset_dir = self.locations.loc[idx, "paths"]
         cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
         
-        if self.transform:
-            cubic = self.transform(cubic)
+        cubic = torch.tensor(cubic)
+        
+        for transform in self.transform:
+            cubic = transform(cubic)
         
         sample = {"label": label, "image": cubic}
 
@@ -172,3 +192,4 @@ class FDSSCDataset(Dataset):
             output = np.transpose(clip, (1, 2, 0))
 
         return np.expand_dims(output, axis=0)
+

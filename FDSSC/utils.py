@@ -166,13 +166,22 @@ def extract_cubic(dataset, coords, size=(9, 9)):
 
     return output
 
-# training model
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import time
 import sys
+
+# initializing model weights
+def init_weights(m):
+    if isinstance(m, nn.Conv3d):
+        nn.init.xavier_normal_(m.weight, gain=2.)
+        nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.Linear):
+        nn.init.xavier_normal_(m.weight)
+        nn.init.zeros_(m.bias)
+
+# training model
 
 def train(model, dataloader, epochs=1, loss_fn=None, optimizer=None, lr=0.0001, callbacks=[], device=None, callback_args={}):
     # define default loss functions and optimizer
@@ -263,14 +272,19 @@ def validate_callback(model, dataloader, loss_fn=None, device=None):
 
                 outputs = model(inputs)
 
+            # Getting predicted value
+                _, predicted = torch.max(outputs.data, 1)
             # calculating validation loss
-            tmp_eval_accuracy = loss_fn(outputs, label)
+            total = label.size(0)
+            correct = (predicted == label).sum().item()
+
+            tmp_eval_accuracy = correct / total
 
             eval_accuracy += tmp_eval_accuracy
             # Track the number of batches
             nb_eval_steps += 1
 
-        print("  Loss: {0:.2f}".format(eval_accuracy/nb_eval_steps))
+        print("  Accuracy: {0:.2f}".format(100 * eval_accuracy/nb_eval_steps))
         print("  Validation took: {:}".format(format_time(time.time() - t0)))
         return eval_accuracy / nb_eval_steps
     return validate
@@ -280,7 +294,7 @@ def saving_checkpoints_callback(path2chckpt, model, optimizer, freq, epochs):
     def save(kwargs):
         epoch = kwargs["epoch"]
         loss = kwargs["loss"]
-        if (epoch - 1) % freq == 0 or epoch == epochs and epoch != 1:
+        if ((epoch - 1) % freq == 0 or epoch == epochs) and (epoch != 1):
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
