@@ -60,7 +60,7 @@ def extract_locs(dataset_path, xy=True, csv_filepath=None, size=(9, 9), stride=(
         coordlist = [dataset.xy(y, x) for x, y in validlist]
         latlon = convert_to_EPSG4326(coordlist, dataset)
     if xy:
-        outlist = [lat, lon, x, y for (lat, lon), (x, y) in zip(latlon, validlist)]
+        outlist = [(lat, lon, x, y) for (lat, lon), (x, y) in zip(latlon, validlist)]
         df = pd.DataFrame(outlist, columns=["LATITUDE", "LONGITUDE", "x", "y"])
     else: 
         df = pd.DataFrame(latlon, columns=["LATITUDE", "LONGITUDE"])
