@@ -40,7 +40,7 @@ def extract_locs(dataset_path, xy=True, csv_filepath=None, size=(9, 9), stride=(
     # linear scan of image to extract valid locations
     with rasterio.open(dataset_path, mode="r") as dataset:
         for y in range(0, dataset.height, stride[1]):
-            xbounds = [0, 0]
+            xbounds = [dataset.width, 0]
             for x in range(0, dataset.width // 2, stride[0]):
                 window = Window(x - size[0] // 2, y - size[1] // 2, size[0], size[1])
                 clip = dataset.read(window=window)
@@ -55,6 +55,7 @@ def extract_locs(dataset_path, xy=True, csv_filepath=None, size=(9, 9), stride=(
                 if (not np.isnan(np.sum(clip))) and (clip.shape[1:3] == size):
                     xbounds[1] = x
                     break
+
             validlist.extend([(px, y) for px in range(xbounds[0], xbounds[1], stride[0])])
 
         coordlist = [dataset.xy(y, x) for x, y in validlist]
@@ -146,7 +147,7 @@ class PredictorDataset(Dataset):
             cubic = np.load("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
         except FileNotFoundError:
             cubic = self.extract_cubic(self.dataset_dir, self.conv_coords(coords, reverse=True), xycoords=xy, size=self.size)
-            np.save("{}/{}_{}_{}_{}.npy".format( self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), cubic)
+            np.save("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
         cubic = np.nan_to_num(cubic)
 
