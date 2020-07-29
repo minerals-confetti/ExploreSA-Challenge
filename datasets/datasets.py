@@ -71,7 +71,7 @@ class LocationChecker():
 
     def check(self, coords):
         '''coords: (EPSG4326) {"LATITUDE": num, "LONGITUDE": num}'''
-        valid_list = []
+        valid=_list = []
         for dataset, bounds in self.bounds_dict.items():
             if bounds[0][0] < coords["LATITUDE"] < bounds[1][0]:
                 if bounds[0][1] < coords["LONGITUDE"] < bounds[1][1]:
