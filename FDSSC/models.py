@@ -116,13 +116,13 @@ class FDSSC_model(nn.Module):
    
 class FerDSSC_model(nn.Module):
 
-    def __init__(self, input_shape, classes):
+    def __init__(self, input_shape, classes, growth_r = 12, hidden_states = 30):
         '''Input shape in the form of (C,H,W,D)'''
         super(FerDSSC_model, self).__init__()
         self.input_shape = input_shape
 
         global growth_rate
-        growth_rate = 12
+        growth_rate = growth_r
 
         # add padding since original paper would skip over channels that don't divide evenly into the convolution
         depth_after_spec = input_shape[3]
@@ -134,7 +134,7 @@ class FerDSSC_model(nn.Module):
         self.bn_prelu1 = Bn_prelu(growth_rate * 5)
 
         #reshaping and transforming to prep for spatial conv
-        hidden_states = 100
+
         conv_depth = depth_after_spec # maybe consider setting this to an integer so we can apply transfer learning? (need to pad as well)
         self.reshape_conv = nn.Conv3d(growth_rate * 5, hidden_states, kernel_size=(1, 1, conv_depth), stride=(1, 1, 1))
         self.bn_prelu2 = Bn_prelu(hidden_states)
@@ -182,8 +182,8 @@ class FerDSSC_model(nn.Module):
 
         pooled = self.pool1(xspat)
         flattened = torch.flatten(pooled, start_dim=1)
-        dropped = self.drop1(flattened)
-        output = self.fc1(dropped)
+        flattened = self.drop1(flattened)
+        output = self.fc1(flattened)
         
         if not self.training:
             output = self.softm(output)

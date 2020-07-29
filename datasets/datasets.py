@@ -140,10 +140,10 @@ class FDSSCDataset(Dataset):
     The csv should have a "label" column, "LATITUDE", and "LONGITUDE"
     '''
 
-    def __init__(self, datadir, csv, size=(9, 9), transform=[], lochecker=None):
+    def __init__(self, datadir, cachedir, csv, size=(9, 9), transform=[], lochecker=None):
         self.locations = pd.read_csv(csv)
         #checking if csv is valid
-
+        self.lbound = None
         columns = self.locations.columns
         if "LATITUDE" not in columns or "LONGITUDE" not in columns or "label" not in columns or "paths" not in columns:
             raise Exception("csv invalid, LATITUDE, LONGITUDE, label, paths must be in a valid csv")
@@ -153,6 +153,7 @@ class FDSSCDataset(Dataset):
         else:
             self.locationChecker = LocationChecker(datadir, rigorous=False)
         
+        self.cachedir = cachedir
         self.size = size
         self.transform = transform
 
@@ -164,17 +165,23 @@ class FDSSCDataset(Dataset):
         coords = {"LATITUDE": float(self.locations.loc[idx, "LATITUDE"]), "LONGITUDE": float(self.locations.loc[idx, "LONGITUDE"])}
 
         dataset_dir = self.locations.loc[idx, "paths"]
-        cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
+        try:
+            cubic = np.load("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
+        except FileNotFoundError:
+            cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
+            np.save("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
+        if self.lbound != None:
+            cubic = self.normOP(cubic)
+
         cubic = torch.tensor(cubic)
-        
+
         for transform in self.transform:
             cubic = transform(cubic)
         
         sample = {"label": label, "image": cubic}
 
         return sample
-
     
     def __len__(self):
         return len(self.locations)
@@ -193,3 +200,31 @@ class FDSSCDataset(Dataset):
 
         return np.expand_dims(output, axis=0)
 
+    def getMinMax(self):
+        max_value = self[0]["image"].numpy().max(axis=(0, 1, 2), keepdims=False)
+        min_value = self[0]["image"].numpy().min(axis=(0, 1, 2), keepdims=False)
+
+        for i in range(1, len(self)):
+            temp_max = self[i]["image"].numpy().max(axis=(0, 1, 2), keepdims=False)
+            temp_min = self[i]["image"].numpy().min(axis=(0, 1, 2), keepdims=False)
+
+            max_value = np.where(temp_max > max_value, temp_max, max_value)
+            min_value = np.where(temp_max < min_value, temp_min, min_value)
+
+        self.min_value = min_value
+        self.max_value = max_value
+
+        return min_value, max_value
+
+    def normalize(self, lbound, ubound, min_value=None, max_value=None):
+        if min_value is not None:
+            self.min_value = min_value
+        if max_value is not None:
+            self.max_value = max_value
+
+        self.lbound = lbound
+        self.ubound = ubound
+
+    def normOP(self, cubic):
+        
+        return (self.ubound - self.lbound) * (cubic - np.expand_dims(self.min_value, axis=(0, 1, 2))) / np.expand_dims((self.max_value - self.min_value), axis=(0, 1, 2)) + self.lbound
