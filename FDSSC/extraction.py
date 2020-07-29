@@ -8,6 +8,15 @@ import rasterio
 from pyproj import transform, Proj
 import random
 
+import sys
+import datetime
+import time
+
+def format_time(elapsed):
+    elapsed_rounded = int(round((elapsed)))
+    return str(datetime.timedelta(seconds=elapsed_rounded))
+
+
 # helper func to extract a window
 from rasterio.windows import Window
 
@@ -17,20 +26,96 @@ def convert_from_EPSG4326(xy, dataset):
 
     return list(zip(*transform(inproj, outproj, *zip(*xy))))
 
-def extract_locs(dataset_path, cachedir, csv_filepath, size=(9, 9), stride=(9, 9)):
-    
+def convert_to_EPSG4326(xy, dataset):
+    """given a list of (x, y) encoded in dataset.crs, returns a list of (x, y) encoded in EPSG4326"""
 
-class Predictor(Dataset):
+    inproj, outproj = dataset.crs, Proj('EPSG:4326')
+
+    return list(zip(*transform(inproj, outproj, *zip(*xy))))
+
+def extract_locs(dataset_path, csv_filepath=None, size=(9, 9), stride=(9, 9)):
+    
+    validlist = []
+    latlon = []
+    # linear scan of image to extract valid locations
+    with rasterio.open(dataset_path, mode="r") as dataset:
+        for y in range(0, dataset.height, stride[1]):
+            xbounds = [0, 0]
+            for x in range(0, dataset.width // 2, stride[0]):
+                window = Window(x - size[0] // 2, y - size[1] // 2, size[0], size[1])
+                clip = dataset.read(window=window)
+                clip[clip==-999] = np.nan
+                if (not np.isnan(np.sum(clip))) and (clip.shape[1:3] == size):
+                    xbounds[0] = x
+                    break
+            for x in range(dataset.width, dataset.width // 2, -stride[0]):
+                window = Window(x - size[0] // 2, y - size[1] // 2, size[0], size[1])
+                clip = dataset.read(window=window)
+                clip[clip==-999] = np.nan
+                if (not np.isnan(np.sum(clip))) and (clip.shape[1:3] == size):
+                    xbounds[1] = x
+                    break
+            validlist.extend([(px, y) for px in range(xbounds[0], xbounds[1], stride[0])])
+
+        coordlist = [dataset.xy(y, x) for x, y in validlist]
+        latlon = convert_to_EPSG4326(coordlist, dataset)
+
+    df = pd.DataFrame(latlon, columns=["LATITUDE", "LONGITUDE"])
+    if csv_filepath is not None:
+        df.to_csv(csv_filepath, index=False)
+    
+    return df
+
+def predict(model, dataloader, device=None):
+    # find device
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    outputs = {"LATITUDE": [],
+               "LONGITUDE": [],
+               "Prediction": [],
+               "Probability": []
+               }
+    # setting model on eval mode
+    t0 = time.time() # keep track of time taken
+
+    print("Predicting :OOO ...")
+    model.eval()
+    with torch.no_grad():
+        for i, batch in enumerate(dataloader):
+            lat, lon, img = batch["LATITUDE"], batch["LONGITUDE"], batch["image"].to(device)
+
+            predictions = model(img)
+
+            prob, pred = torch.max(predictions, 1)
+
+            outputs["LATITUDE"].append(lat.cpu().numpy().tolist())
+            outputs["LONGITUDE"].append(lon.cpu().numpy().tolist())
+            outputs["Prediction"].append(pred.cpu().numpy().tolist())
+            outputs["Probability"].append(prob.cpu().numpy().tolist())
+
+            if not i == 0:
+                elapsed = format_time(time.time() - t0)
+                
+                # Report progress.
+                sys.stdout.write("\r" + '  Batch {:>5,}  of  {:>5,}.    Elapsed: {:}.'.format(i, len(dataloader), elapsed))
+
+    return outputs
+
+class PredictorDataset(Dataset):
     '''Creates a dataset from an input rasterio dataset and a series of valid points,
     needs columns LONGITUDE and LATITUDE
     '''
 
-    def __init__(self, dataset_path, cachedir, csv=None, csv_filepath=None, size=(9, 9), stride=(9, 9)):
-        if csv is None:
-
-            self.locations(csv_filepath)
+    def __init__(self, dataset_path, cachedir, csv_filepath=None, size=(9, 9), stride=(9, 9)):
+        if csv_filepath is None:
+            self.locations = extract_locs(dataset_path, size=size, stride=stride)
         else:
-            self.locations = pd.read_csv(csv)
+            try:
+                self.locations = pd.read_csv(csv_filepath)
+            except:
+                self.locations = extract_locs(dataset_path, csv_filepath=csv_filepath, size=size, stride=stride)
+
 
         self.lbound = None
 
@@ -38,34 +123,32 @@ class Predictor(Dataset):
 
         columns = self.locations.columns
         if "LATITUDE" not in columns or "LONGITUDE" not in columns:
-            raise Exception("csv invalid, LATITUDE, LONGITUDE must be in a valid csv")
+            raise Exception("csv invalid, LATITUDE, LONGITUDE must be in a valid csv!")
         
         self.cachedir = cachedir
         self.size = size
+        self.dataset_dir = dataset_path
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
-        label = int(self.locations.loc[idx, "label"])
         coords = {"LATITUDE": float(self.locations.loc[idx, "LATITUDE"]), "LONGITUDE": float(self.locations.loc[idx, "LONGITUDE"])}
 
-        dataset_dir = self.locations.loc[idx, "paths"]
         try:
-            cubic = np.load("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
+            cubic = np.load("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
         except FileNotFoundError:
-            cubic = self.extract_cubic(dataset_dir, self.conv_coords(coords, reverse=True), size=self.size)
-            np.save("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), cubic)
+            cubic = self.extract_cubic(self.dataset_dir, self.conv_coords(coords, reverse=True), size=self.size)
+            np.save("{}/{}_{}_{}_{}.npy".format( self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
-        if self.lbound != None:
+        cubic = np.nan_to_num(cubic)
+
+        if self.lbound is not None:
             cubic = self.normOP(cubic)
 
-        cubic = torch.tensor(cubic)
-
-        for transform in self.transform:
-            cubic = transform(cubic)
+        cubic = torch.tensor(cubic, dtype=torch.float32)
         
-        sample = {"label": label, "image": cubic}
+        sample = {"LATITUDE": coords["LATITUDE"], "LONGITUDE": coords["LONGITUDE"], "image": cubic}
 
         return sample
     
@@ -79,6 +162,7 @@ class Predictor(Dataset):
         with rasterio.open(dataset_dir) as dataset:
             trans_coords = convert_from_EPSG4326([coords], dataset)
             lon, lat = trans_coords[0]
+            print(lon, lat)
             py, px = dataset.index(lon, lat)
             window = Window(px - size[0] // 2, py - size[1] // 2, size[0], size[1])
             clip = dataset.read(window=window)
