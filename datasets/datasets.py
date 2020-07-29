@@ -171,6 +171,8 @@ class FDSSCDataset(Dataset):
             cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
             np.save("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
+        cubic = np.nan_to_num(cubic)
+
         if self.lbound != None:
             cubic = self.normOP(cubic)
 
