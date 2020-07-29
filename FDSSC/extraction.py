@@ -33,7 +33,7 @@ def convert_to_EPSG4326(xy, dataset):
 
     return list(zip(*transform(inproj, outproj, *zip(*xy))))
 
-def extract_locs(dataset_path, csv_filepath=None, size=(9, 9), stride=(9, 9)):
+def extract_locs(dataset_path, xy=True, csv_filepath=None, size=(9, 9), stride=(9, 9)):
     
     validlist = []
     latlon = []
@@ -44,14 +44,14 @@ def extract_locs(dataset_path, csv_filepath=None, size=(9, 9), stride=(9, 9)):
             for x in range(0, dataset.width // 2, stride[0]):
                 window = Window(x - size[0] // 2, y - size[1] // 2, size[0], size[1])
                 clip = dataset.read(window=window)
-                clip[clip==-999] = np.nan
+                clip[clip==-999.] = np.nan
                 if (not np.isnan(np.sum(clip))) and (clip.shape[1:3] == size):
                     xbounds[0] = x
                     break
             for x in range(dataset.width, dataset.width // 2, -stride[0]):
                 window = Window(x - size[0] // 2, y - size[1] // 2, size[0], size[1])
                 clip = dataset.read(window=window)
-                clip[clip==-999] = np.nan
+                clip[clip==-999.] = np.nan
                 if (not np.isnan(np.sum(clip))) and (clip.shape[1:3] == size):
                     xbounds[1] = x
                     break
@@ -59,8 +59,11 @@ def extract_locs(dataset_path, csv_filepath=None, size=(9, 9), stride=(9, 9)):
 
         coordlist = [dataset.xy(y, x) for x, y in validlist]
         latlon = convert_to_EPSG4326(coordlist, dataset)
-
-    df = pd.DataFrame(latlon, columns=["LATITUDE", "LONGITUDE"])
+    if xy:
+        outlist = [lat, lon, x, y for (lat, lon), (x, y) in zip(latlon, validlist)]
+        df = pd.DataFrame(outlist, columns=["LATITUDE", "LONGITUDE", "x", "y"])
+    else: 
+        df = pd.DataFrame(latlon, columns=["LATITUDE", "LONGITUDE"])
     if csv_filepath is not None:
         df.to_csv(csv_filepath, index=False)
     
@@ -107,14 +110,14 @@ class PredictorDataset(Dataset):
     needs columns LONGITUDE and LATITUDE
     '''
 
-    def __init__(self, dataset_path, cachedir, csv_filepath=None, size=(9, 9), stride=(9, 9)):
+    def __init__(self, dataset_path, cachedir, csv_filepath=None, xy=True, size=(9, 9), stride=(9, 9)):
         if csv_filepath is None:
-            self.locations = extract_locs(dataset_path, size=size, stride=stride)
+            self.locations = extract_locs(dataset_path, xy=xy, size=size, stride=stride)
         else:
             try:
                 self.locations = pd.read_csv(csv_filepath)
             except:
-                self.locations = extract_locs(dataset_path, csv_filepath=csv_filepath, size=size, stride=stride)
+                self.locations = extract_locs(dataset_path, csv_filepath=csv_filepath, xy=xy, size=size, stride=stride)
 
 
         self.lbound = None
@@ -125,6 +128,8 @@ class PredictorDataset(Dataset):
         if "LATITUDE" not in columns or "LONGITUDE" not in columns:
             raise Exception("csv invalid, LATITUDE, LONGITUDE must be in a valid csv!")
         
+        self.xy = xy
+
         self.cachedir = cachedir
         self.size = size
         self.dataset_dir = dataset_path
@@ -135,10 +140,12 @@ class PredictorDataset(Dataset):
         
         coords = {"LATITUDE": float(self.locations.loc[idx, "LATITUDE"]), "LONGITUDE": float(self.locations.loc[idx, "LONGITUDE"])}
 
+        xy = (self.locations.loc[idx, "x"], self.locations.loc[idx, "y"])
+
         try:
             cubic = np.load("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
         except FileNotFoundError:
-            cubic = self.extract_cubic(self.dataset_dir, self.conv_coords(coords, reverse=True), size=self.size)
+            cubic = self.extract_cubic(self.dataset_dir, self.conv_coords(coords, reverse=True), xycoords=xy, size=self.size)
             np.save("{}/{}_{}_{}_{}.npy".format( self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], self.dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
         cubic = np.nan_to_num(cubic)
@@ -155,14 +162,19 @@ class PredictorDataset(Dataset):
     def __len__(self):
         return len(self.locations)
 
-    def extract_cubic(self, dataset_dir, coords, size=(9, 9)):
+    def extract_cubic(self, dataset_dir, coords, xycoords=None, size=(9, 9)):
         '''takes in a dataset dir, a tuple of coord (lat, long), size of the extracted cubics, 
         and returns coords_length * size1 * size2 * n_bands'''
+        if xycoords:
+            with rasterio.open(dataset_dir) as dataset:
+                window = Window(xycoords[0] - size[0] // 2, xycoords[1] - size[1] // 2, size[0], size[1])
+                clip = dataset.read(window=window)
+                output = np.transpose(clip, (1, 2, 0))
+            return np.expand_dims(output, axis=0)
 
         with rasterio.open(dataset_dir) as dataset:
             trans_coords = convert_from_EPSG4326([coords], dataset)
             lon, lat = trans_coords[0]
-            print(lon, lat)
             py, px = dataset.index(lon, lat)
             window = Window(px - size[0] // 2, py - size[1] // 2, size[0], size[1])
             clip = dataset.read(window=window)
