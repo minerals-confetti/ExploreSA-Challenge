@@ -166,10 +166,10 @@ class FDSSCDataset(Dataset):
 
         dataset_dir = self.locations.loc[idx, "paths"]
         try:
-            cubic = np.load("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
+            cubic = np.load("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), allow_pickle=True)
         except FileNotFoundError:
             cubic = self.extract_cubic(dataset_dir, self.locationChecker.conv_coords(coords, reverse=True), size=self.size)
-            np.save("{}/{}_{}_{}.npy".format(self.cachedir, coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), cubic)
+            np.save("{}/{}_{}_{}_{}.npy".format(self.cachedir, self.size[0], coords["LATITUDE"], coords["LONGITUDE"], dataset_dir.split("/")[-1].split(".")[0]), cubic)
         
         if self.lbound != None:
             cubic = self.normOP(cubic)
