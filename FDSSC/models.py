@@ -147,7 +147,7 @@ class FerDSSC_model(nn.Module):
         self.bn_prelu3 = Bn_prelu(growth_rate * 5)
 
         # pooling for classification
-        self.pool1 = nn.AvgPool3d(kernel_size=(7, 7, 1), stride=(1, 1, 1))
+        self.pool1 = nn.AvgPool3d(kernel_size=(input_shape[1] - 2 , input_shape[1] - 2, 1), stride=(1, 1, 1))
 
         self.drop1 = nn.Dropout(0.5)
 
@@ -181,6 +181,7 @@ class FerDSSC_model(nn.Module):
         xspat = self.bn_prelu3(xspat)
 
         pooled = self.pool1(xspat)
+
         flattened = torch.flatten(pooled, start_dim=1)
         flattened = self.drop1(flattened)
         output = self.fc1(flattened)
