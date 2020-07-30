@@ -220,16 +220,17 @@ class PredictorDataset(Dataset):
 
 def createImage(dataset_path, pred_dict, interest_idx, size=(15, 15)):
     with rasterio.open(dataset_path) as dataset:
-        image = np.zeros((dataset.height, dataset.width), dtype=np.int16)
+        image = np.full((dataset.height, dataset.width), np.nan, dtype=np.int16)
 
     latlon = convert_from_EPSG4326(list(zip(pred_dict["LATITUDE"], pred_dict["LONGITUDE"])), dataset)
     # not actually latlon, just coords in dataset native projection
 
     for (lat, lon), pred, prob in zip(latlon, pred_dict["Prediction"], pred_dict["Probability"]):
+        
         if pred == interest_idx:
-            y, x = dataset.index(lon, lat)
+            y, x = dataset.index(lat, lon)
             
-            image[(y - size[1] // 2):(y + size[1] // 2), (x - size[0] // 2):(x + size[0] // 2)] = int(prob*255)
+            image[(y - size[1] // 2):(y + size[1] // 2), (x - size[0] // 2):(x + size[0] // 2)] = 255
 
     return image
 
@@ -241,5 +242,7 @@ def plotimg(dataset_path, overlay):
         fig = plt.figure()
         plt.subplot(1, 1, 1)
         plt.imshow(np.transpose(dataset.read((1, 2, 3)), (1, 2, 0))[...,::-1].copy())
-        plt.imshow(overlay, cmap="cividis", alpha=0.5)
+        plt.imshow(overlay, cmap="cividis", alpha=1.0)
+        plt.colorbar()
+        #plt.ylabel(h, "probability of gold")
         plt.show()
