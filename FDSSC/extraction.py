@@ -236,13 +236,27 @@ def createImage(dataset_path, pred_dict, interest_idx, size=(15, 15)):
 
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib.colors import LinearSegmentedColormap
+
+# get colormap
+ncolors = 256
+color_array = plt.get_cmap('cividis')(range(ncolors))
+
+# change alpha values
+color_array[:,-1] = np.linspace(1.0,0.0, ncolors)
+
+# create a colormap object
+map_object = LinearSegmentedColormap.from_list(name='cividis_alpha',colors=color_array)
+
+# register this new colormap with matplotlib
+plt.register_cmap(cmap=map_object)
+
 
 def plotimg(dataset_path, overlay):
     with rasterio.open(dataset_path) as dataset:
-        fig = plt.figure()
-        plt.subplot(1, 1, 1)
-        plt.imshow(np.transpose(dataset.read((1, 2, 3)), (1, 2, 0))[...,::-1].copy())
-        plt.imshow(overlay, cmap="cividis", alpha=1.0)
-        plt.colorbar()
+        f,ax = plt.subplots()
+        ax.imshow(np.transpose(dataset.read((1, 2, 3)), (1, 2, 0))[...,::-1].copy())
+        h = ax.imshow(overlay, cmap="cividis_alpha", alpha=1.0)
+        plt.colorbar(mappable=h)
         #plt.ylabel(h, "probability of gold")
         plt.show()
