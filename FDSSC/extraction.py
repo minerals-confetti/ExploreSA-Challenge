@@ -93,10 +93,10 @@ def predict(model, dataloader, device=None):
 
             prob, pred = torch.max(predictions, 1)
 
-            outputs["LATITUDE"].append(lat.cpu().numpy().tolist())
-            outputs["LONGITUDE"].append(lon.cpu().numpy().tolist())
-            outputs["Prediction"].append(pred.cpu().numpy().tolist())
-            outputs["Probability"].append(prob.cpu().numpy().tolist())
+            outputs["LATITUDE"].extend(lat.cpu().numpy().tolist())
+            outputs["LONGITUDE"].extend(lon.cpu().numpy().tolist())
+            outputs["Prediction"].extend(pred.cpu().numpy().tolist())
+            outputs["Probability"].extend(prob.cpu().numpy().tolist())
 
             if not i == 0:
                 elapsed = format_time(time.time() - t0)
