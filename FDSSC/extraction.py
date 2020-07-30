@@ -217,3 +217,29 @@ class PredictorDataset(Dataset):
         if reverse:
             return coords["LATITUDE"], coords["LONGITUDE"]
         return {"LATITUDE": coords[0], "LONGITUDE": coords[1]}
+
+def createImage(dataset_path, pred_dict, interest_idx, size=(15, 15)):
+    with rasterio.open(dataset_path) as dataset:
+        image = np.zeros((dataset.height, dataset.width), dtype=np.int16)
+
+    latlon = convert_from_EPSG4326(list(zip(pred_dict["LATITUDE"], pred_dict["LONGITUDE"])), dataset)
+    # not actually latlon, just coords in dataset native projection
+
+    for (lat, lon), pred, prob in zip(latlon, pred_dict["Prediction"], pred_dict["Probability"]):
+        if pred == interest_idx:
+            y, x = dataset.index(lon, lat)
+            
+            image[(y - size[1] // 2):(y + size[1] // 2), (x - size[0] // 2):(x + size[0] // 2)] = int(prob*255)
+
+    return image
+
+import matplotlib.pyplot as plt
+import matplotlib
+
+def plotimg(dataset_path, overlay):
+    with rasterio.open(dataset_path) as dataset:
+        fig = plt.figure()
+        plt.subplot(1, 1, 1)
+        plt.imshow(np.transpose(dataset.read((1, 2, 3)), (1, 2, 0))[...,::-1].copy())
+        plt.imshow(overlay, cmap="cividis", alpha=0.5)
+        plt.show()
