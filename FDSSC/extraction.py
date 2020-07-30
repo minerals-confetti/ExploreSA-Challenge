@@ -243,20 +243,42 @@ ncolors = 256
 color_array = plt.get_cmap('cividis')(range(ncolors))
 
 # change alpha values
-color_array[:,-1] = np.linspace(1.0,0.0, ncolors)
+color_array[:,-1] = np.linspace(0.0,1.0, ncolors)
 
 # create a colormap object
 map_object = LinearSegmentedColormap.from_list(name='cividis_alpha',colors=color_array)
 
+color_array = plt.get_cmap('Reds')(range(ncolors))
+
+# change alpha values
+color_array[:,-1] = np.linspace(0.0,1.0, ncolors)
+
 # register this new colormap with matplotlib
 plt.register_cmap(cmap=map_object)
 
+map_object = LinearSegmentedColormap.from_list(name='Reds_alpha',colors=color_array)
+
+# register this new colormap with matplotlib
+plt.register_cmap(cmap=map_object)
 
 def plotimg(dataset_path, overlay):
     with rasterio.open(dataset_path) as dataset:
         f,ax = plt.subplots()
-        ax.imshow(np.transpose(dataset.read((1, 2, 3)), (1, 2, 0))[...,::-1].copy())
+        ax.imshow(np.transpose(dataset.read((3, 2, 1)), (1, 2, 0)))
         h = ax.imshow(overlay, cmap="cividis_alpha", alpha=1.0)
         plt.colorbar(mappable=h)
+        #plt.ylabel(h, "probability of gold")
+        plt.show()
+
+def plotimgs(dataset_path, overlays, labels=[]):
+    cmaps = ["cividis_alpha", "Reds_alpha"]
+    with rasterio.open(dataset_path) as dataset:
+        f,ax = plt.subplots()
+        ax.imshow(np.transpose(dataset.read((3, 2, 1)), (1, 2, 0)) + 0.2)
+        for i, overlay in enumerate(overlays):
+            h = ax.imshow(overlay, cmap=cmaps[i], alpha=1.0)
+            cbar = plt.colorbar(mappable=h, ticks=[0, 255])
+            cbar.set_label(labels[i], rotation=270)
+            cbar.ax.set_yticklabels(["0%", "100%"])
         #plt.ylabel(h, "probability of gold")
         plt.show()
